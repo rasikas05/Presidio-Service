@@ -16,7 +16,7 @@ def validate_api_key(x_api_key: str = Header(...)):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 @router.post("/anonymize")
-@limiter.limit("5/minute")
+@limiter.limit("30/minute")
 def anonymize(request: Request, body: TextRequest, api_key: str = Depends(validate_api_key)):
     try:
         start_time = time.time()
@@ -39,7 +39,7 @@ def anonymize(request: Request, body: TextRequest, api_key: str = Depends(valida
         raise HTTPException(status_code=500, detail="Internal error")
 
 @router.post("/analyze")
-@limiter.limit("5/minute")
+@limiter.limit("30/minute")
 def analyze(request: Request, body: TextRequest, api_key: str = Depends(validate_api_key)):
     try:
         start_time = time.time()
