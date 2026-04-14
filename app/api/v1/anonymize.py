@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from app.models.request_model import TextRequest
-from app.services.presidio_service import analyze_text, anonymize_text
+from app.services.presidio_service import analyze_text, anonymize_with_entities
 from app.core.config import settings
 from app.core.logging_config import logger
 
@@ -21,17 +21,14 @@ def anonymize(request: Request, body: TextRequest, api_key: str = Depends(valida
     try:
         start_time = time.time()
         logger.info(f"Processing text length: {len(body.text)}")
-        result = anonymize_text(body.text)
+        result = anonymize_with_entities(body.text)
 
         end_time = time.time()
         logger.info(f"Processing time: {end_time - start_time:.3f} seconds")
         logger.info("Processing complete")
-
         return {
-            "status": "success",
-            "data": {
-                "anonymized_text": result
-            }
+            "originalText": result.get("originalText", body.text),
+            "sanitizedText": result.get("sanitizedText", body.text),
         }
 
     except Exception as e:
@@ -50,10 +47,7 @@ def analyze(request: Request, body: TextRequest, api_key: str = Depends(validate
         logger.info(f"Analyze processing time: {end_time - start_time:.3f} seconds")
 
         return {
-            "status": "success",
-            "data": {
-                "entities": entities
-            }
+            "entities": entities
         }
 
     except Exception as e:

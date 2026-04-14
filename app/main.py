@@ -6,6 +6,7 @@ from slowapi.util import get_remote_address
 from slowapi import _rate_limit_exceeded_handler
 from app.api.v1.anonymize import router
 from app.core.config import settings
+from app.services.presidio_service import get_engines
 
 app = FastAPI(title=settings.app_name)
 
@@ -15,6 +16,12 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(router, prefix="/api/v1")
+
+
+@app.on_event("startup")
+def startup_event():
+    # Warm engines once at process start to avoid per-request model load.
+    get_engines()
 
 @app.get("/health")
 def health():
