@@ -12,12 +12,13 @@ _engine_lock = Lock()
 
 # Map Presidio entity types to placeholders. Replacement preserves sentence structure.
 ENTITY_REPLACEMENTS = {
-    "PERSON": "[NAME]",
-    "EMAIL_ADDRESS": "[EMAIL]",
-    "PHONE_NUMBER": "[PHONE]",
+    "NAME": "[Name]",
+    "EMAIL": "[Email]",
+    "PHONE": "[number]",
     "PAN": "[PAN]",
     "AADHAAR": "[AADHAAR]",
-    "PASSPORT": "[PASSPORT]",
+    "PASSPORT": "[Passport]",
+    "US_DRIVER_LICENSE": "[License]",  # Added to handle Comprehend detections
 }
 
 CANONICAL_ENTITY_TYPES = {
@@ -220,7 +221,11 @@ def _analyze_internal(text: str):
         entities=SUPPORTED_ANALYZE_ENTITIES,
         score_threshold=0.45,
     )
-    return _resolve_overlaps(_deduplicate_results(results))
+    deduplicated = _deduplicate_results(results)
+    resolved = _resolve_overlaps(deduplicated)
+    # Filter out entities with score below 0.7
+    filtered = [entity for entity in resolved if entity.score >= 0.5]  # Lowered threshold for better detection
+    return filtered
 
 
 def _anonymize_from_results(text: str, results) -> str:
@@ -254,6 +259,48 @@ def analyze_text(text: str):
 
 def anonymize_with_entities(text: str):
     results = _analyze_internal(text)
+    entities = _build_entities_payload(text, results)
+    anonymized_text = _anonymize_from_results(text, results)
+    return {
+        "originalText": text,
+        "sanitizedText": anonymized_text,
+        "entities": entities,
+    }
+
+
+def _build_external_results(raw_results):
+    class ExternalAnalyzerResult:
+        def __init__(self, entity_type, start, end, score):
+            self.entity_type = _normalize_entity_type(entity_type)
+            self.start = start
+            self.end = end
+            self.score = score
+
+    results = []
+    for item in raw_results or []:
+        if not isinstance(item, dict):
+            continue
+
+        entity_type = item.get("entity_type") or item.get("type")
+        if not entity_type:
+            continue
+
+        try:
+            start = int(item.get("start", 0))
+            end = int(item.get("end", 0))
+            score = float(item.get("score", 0.0))
+        except (TypeError, ValueError):
+            continue
+
+        if start < 0 or end <= start:
+            continue
+
+        results.append(ExternalAnalyzerResult(entity_type, start, end, score))
+    return results
+
+
+def anonymize_with_external_results(text: str, analyzer_results):
+    results = _build_external_results(analyzer_results)
     entities = _build_entities_payload(text, results)
     anonymized_text = _anonymize_from_results(text, results)
     return {
