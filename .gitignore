@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+
+# Local secrets — copy from .env.example; never commit real values
+.env
+.env.local
+*.env.local
