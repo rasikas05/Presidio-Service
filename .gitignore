@@ -5,3 +5,6 @@ __pycache__/
 .env
 .env.local
 *.env.local
+
+# Local runtime / verification logs (never commit)
+data/
