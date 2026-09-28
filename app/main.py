@@ -6,6 +6,8 @@ from slowapi.util import get_remote_address
 from slowapi import _rate_limit_exceeded_handler
 from app.api.v1.anonymize import router
 from app.core.config import settings
+from app.core.correlation import CorrelationIdMiddleware
+from app.core import logging_config  # noqa: F401 — configure logging + correlation filter
 from app.services.presidio_service import get_engines
 
 app = FastAPI(title=settings.app_name)
@@ -13,6 +15,8 @@ app = FastAPI(title=settings.app_name)
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
+# Added after SlowAPI so this middleware is outermost (ContextVar set for all handlers).
+app.add_middleware(CorrelationIdMiddleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(router, prefix="/api/v1")
